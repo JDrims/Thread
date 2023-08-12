@@ -1,32 +1,37 @@
 import java.util.*;
+import java.util.concurrent.*;
 
 public class Main {
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
         String[] texts = new String[25];
         for (int i = 0; i < texts.length; i++) {
             texts[i] = generateText("aab", 30_000);
         }
 
         long startTs = System.currentTimeMillis(); // start time
-        List<Thread> listThread = new ArrayList<>();
-        for (String text : texts) {
-            Runnable logic = () -> processThread(text);
-            Thread thread = new Thread(logic);
-            listThread.add(thread);
-        }
-        for (Thread thread : listThread) {
-            thread.start();
-        }
-        for (Thread thread : listThread) {
-            thread.join();
-        }
-        long endTs = System.currentTimeMillis(); // end time
 
+        final ExecutorService poolThread = Executors.newFixedThreadPool(texts.length);
+        List<Future> listFuture = new ArrayList<>();
+        for(String text:texts) {
+            Callable logic = () -> getMaxSize(text);
+            final Future future = poolThread.submit(logic);
+            listFuture.add(future);
+        }
+        int max = 0;
+        for(Future future:listFuture) {
+            if((int)future.get() > max) {
+                max = (int)future.get();
+            }
+        }
+        System.out.println("Максимальный интервал: " + max);
+        poolThread.shutdown();
+
+        long endTs = System.currentTimeMillis(); // end time
         System.out.println("Time: " + (endTs - startTs) + "ms");
     }
 
-    public static void processThread(String text) {
+    public static int getMaxSize(String text) {
         int maxSize = 0;
         for (int i = 0; i < text.length(); i++) {
             for (int j = 0; j < text.length(); j++) {
@@ -45,7 +50,7 @@ public class Main {
                 }
             }
         }
-        System.out.println(text.substring(0, 100) + " -> " + maxSize);
+        return maxSize;
     }
 
     public static String generateText(String letters, int length) {
